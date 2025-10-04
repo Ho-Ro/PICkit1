@@ -6,14 +6,14 @@ OBJS = pickit1.o hex.o pic14.o devices.o usb_pickit.o
 CFLAGS = $(OPTS)
 LDFLAGS = -lusb -lpopt -s
 LDFLAGS_STATIC = /usr/include/libusb.a
-STATIC_NAME = usb_pickit.`uname -s`.`uname -i`
+STATIC_NAME = pickit1.`uname -s`.`uname -i`
 
 # Needed for static linking under OS X:
 # LDFLAGS=-lusb -lpopt -lIOKit -framework CoreFoundation
 
-all: usb_pickit
+all: pickit1
 
-usb_pickit: $(OBJS)
+pickit1: $(OBJS)
 	$(CC) $(CFLAGS) -o ../$@ $(OBJS) $(LDFLAGS)
 
 static: $(STATIC_NAME)

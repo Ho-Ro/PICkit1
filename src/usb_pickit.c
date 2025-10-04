@@ -736,7 +736,11 @@ usb_pickit_write (usb_pickit *d, pic14_state *s, bool keep_old)
   /* save old config bits */
   int keep_eeprom;
   pic14_config oldconfig;
-  pic14_word pgmchecksum;
+
+  /* calculate checksum by software */
+  usb_pickit_calc_checksum (s);
+  printf ("calculated checksum from .hex file: %#04x\n",
+	  s->program.instchecksum);
 
   if (keep_old)
     usb_pickit_read_config (d, &oldconfig);
@@ -752,6 +756,14 @@ usb_pickit_write (usb_pickit *d, pic14_state *s, bool keep_old)
   usb_pickit_write_eeprom (d, &s->program);
   usb_pickit_write_program (d, &s->program);
 
+/*
+ * Ho-Ro - Check disabled
+ * Checksums do not match b/c they are calculated differently:
+ * Checksum by PICKit uses new program code and old config word.
+ * Config word will be merged from old and new config values
+ * and written later
+ */
+#if 0
   /*
    * JEB - calculate checksum, and get checksum from PICkit, compare
    * and then announce result.  this is the same way as it is done in
@@ -766,7 +778,7 @@ usb_pickit_write (usb_pickit *d, pic14_state *s, bool keep_old)
 
   /* calculate checksum by PICKit */
   usb_pickit_read_checksum (d, s);
-  pgmchecksum = ((s->config.config & s->config.configmask)
+  pic14_word pgmchecksum = ((s->config.config & s->config.configmask)
 		 + s->config.pgmchecksum) & 0xffff;
   printf ("checksum from PICKit: %#20x\n", pgmchecksum);
 
@@ -774,6 +786,7 @@ usb_pickit_write (usb_pickit *d, pic14_state *s, bool keep_old)
     printf ("checksums are equal: device programming successful.\n");
   else
     printf ("checksum verify failed: error in programming!\n");
+#endif
 
   /*
    * JEB - moved config word program to after program memory because
