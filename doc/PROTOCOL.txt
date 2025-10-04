@@ -1,0 +1,99 @@
+Notes on the Microchip PICkit 1 FLASH Starter kit
+host communication protocol.
+
+Orion Sky Lawlor, olawlor@acm.org, 2003/8/3
+
+Useful docs:
+	Microchip PICkit 1 FLASH Starter Kit User's Guide (pdf)
+	Microchip PIC12F675 memory programming specification (pdf)
+	PIC16C745SourceCode (.zip, on the PICkit CD)
+
+Bottom line:
+  - Commands are sent to and from the board as USB
+    bulk formatted transmissions to endpoint 1.
+  - All outgoing commands are 8 bytes, and within an
+    8-byte packet any number of commands can be issued,
+    but the packet must be padded to 8 bytes with 'Z's.
+  - All incoming responses are in multiples of 8 bytes,
+    and are padded with garbage.
+
+By looking through the (helpfully provided) assembly for
+the on-board controller ("big chip"), I can determine a 
+few more details about the PICkit command set.
+
+It's kind of a flaky command set; see usb_pickit.c 
+for what are (I think) all the calls you'll ever need.
+
+'V'<byte>: 
+Controls Vdd (bit 0 of byte), which runs (I think!) 
+the little chip's power and the "BUSY" LED.
+The windows version seems to want to turn off Vdd
+before reading or writing from the little chip.
+You'd do a reset by turning Vdd off, then back on.
+Also controls 2.5KHz PWM output (bit 1 of byte).
+All other bits are ignored.
+
+'v': Read out the version of the interface code 
+in the big chip.  Returns an 8-byte packet with:
+   < major version byte, currently 0x01>
+   < minor version byte, currently 0x00>
+   < sub version byte, currently 0x00>
+   < 5 bytes of garbage (leftover send buffer) >
+
+'P': Enter programming mode-- changes input voltage
+to little chip for programming.  Takes about 4ms.
+  pc <- 0 (this is the only way to decrement the pc!)
+
+'p': Exit programming mode-- back to normal, although
+it does turn off Vdd, because the only way for the little
+chip to leave programming mode is a reset.  This means
+you have to use a "V!" afterwards to turn the little 
+chip back on.
+
+'C': Enters "load configuration" mode.  Can only be 
+used during programming, and cannot be left without a reset.
+This is only used for four ID bytes (pc==0x2000 - 0x2003)
+and the configuration word (pc==0x2007), which are *very* flaky
+for writing-- once a zero is written, it can only be set to 1
+via a reset.
+  pc <- 0x2000
+
+'E': Bulk erase program memory.  You must save OSCCAL
+  (at pc==0x3ff) and bandgap cal (2 high bits of pc==0x2007).
+  If in config mode, erases config ID bytes and word, too.
+  Takes >10ms.
+
+'e': Bulk erase EEPROM memory.  Does nothing if code protection
+  is on.  Takes >10ms.
+
+'I'<word>: Increment the program counter by (little-endian 16 bit)
+  word.  There's no way to go back, so you better get everything 
+  the first time!
+   pc <- pc + word
+
+'W'<word>: Write this word to the program counter 
+  and increment pc. Takes 4ms.
+   program memory at pc <- word
+   pc <- pc + 1
+
+'D'<byte> Write this byte to the next EEPROM slot, and increment
+  the pc.  Takes 8ms.
+   ee data at pc <- byte
+   pc <- pc + 1
+
+'R': Read 4 program memory words from the pc, and increment it.
+   Returns 4 words, as 8 bytes.
+   pc <- pc + 4
+
+'r': Read 8 ee bytes from the pc, and increment it.
+   Returns 8 bytes.
+   pc <- pc + 8
+
+'S'<maxpc word><ee word>: Checksum program (from pc=0..maxpc-1, often 0x03ff)
+  and eeprom (from 0..ee-1, often 0x0080).  Takes >10ms.
+  Returns a 3-byte glob:
+    <16-bit sum of program, low byte>
+    <16-bit sum of program, high byte>
+    <8-bit sum of ee>
+
+Everything else is ignored.  They suggest using 'Z' as a fill byte.

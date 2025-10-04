@@ -1,0 +1,462 @@
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+               00001 ; ***********************************************************
+               00002 ;
+               00003 ; file: blink8.asm
+               00004 ; target: PIC16f684 on PICKit 1
+               00005 ; author: David Henry
+               00006 ; licence: This program is licensed under the terms of the
+               00007 ;          MIT licence.  You can get a copy of it at:
+               00008 ;     http://www.opensource.org/licenses/mit-license.php
+               00009 ;
+               00010 ; This program makes blinking alternatively height LEDs (D0
+               00011 ; to D7).
+               00012 ;
+               00013 ; ***********************************************************
+               00014 
+               00015         ; use PIC 16F684
+               00016         list            p=16f684
+               00017         #include        <p16f684.inc>
+               00001         LIST
+               00002 ; P16F684.INC  Standard Header File, Version 1.03    Microchip Technology, Inc.
+               00379         LIST
+               00018 
+               00019         ; set configuration word.
+002007 30D4    00020         __CONFIG        _FCMEN_OFF & _IESO_OFF & _BOD_OFF & _CPD_OFF & _CP_OFF & _MCLRE_OFF & _PWRTE_OFF & _WDT_OFF & _INTRC_OSC_NOCLKOUT
+               00021 
+               00022         ; hide warning message 302:
+               00023         ; "Register in operand not in bank 0. Ensure bank bits are correct."
+               00024         errorlevel      -302
+               00025 
+               00026         ; -------------------------------------------------------
+               00027         ; global variable declarations.
+               00028         ; -------------------------------------------------------
+               00029 
+  0000007C     00030 count1  equ     0x7c
+  0000007D     00031 count2  equ     0x7d
+  0000007E     00032 ledn    equ     0x7e
+  0000007F     00033 index   equ     0x7f
+               00034 
+               00035         ; -------------------------------------------------------
+               00036         ; reset vector.  this is where the PCL is set after
+               00037         ; power on and reset.
+               00038         ; -------------------------------------------------------
+               00039 
+0000           00040         org     0x00
+0000 2826      00041         goto    main
+               00042 
+0001           00043 wait
+               00044         ; -------------------------------------------------------
+               00045         ; wait function.  perform a little tempo.
+               00046         ; -------------------------------------------------------
+               00047 
+0001 0000      00048         nop                     ; consume one cycle
+               00049 
+0002 0BFC      00050         decfsz  count1,f        ; decrement first counter
+0003 2801      00051         goto    wait            ;  until reaching zero
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+               00052 
+0004 30FF      00053         movlw   0xff            ; reload first counter
+0005 00FC      00054         movwf   count1
+               00055 
+0006 0BFD      00056         decfsz  count2,f        ; decrement second counter
+0007 2801      00057         goto    wait            ;  until reaching zero
+               00058 
+0008 30FF      00059         movlw   0xff            ; reload second counter
+0009 00FD      00060         movwf   count2
+               00061 
+000A 0008      00062         return
+               00063 
+000B           00064 config_led
+               00065         ; -------------------------------------------------------
+               00066         ; LED configuration.  return into W the TRISA
+               00067         ; configuration for lighting the proper LED.  before
+               00068         ; calling this function, W must contain the LED number
+               00069         ; (from 0 to 7) we want to light on.
+               00070         ; we use this number as an offset into a table.
+               00071         ; -------------------------------------------------------
+               00072 
+000B 0782      00073         addwf   PCL,f
+000C 34CE      00074         retlw   B'11001110'     ; xx00x11x
+000D 34CE      00075         retlw   B'11001110'
+000E 34EA      00076         retlw   B'11101010'     ; xx10x01x
+000F 34EA      00077         retlw   B'11101010'
+0010 34DA      00078         retlw   B'11011010'     ; xx01x01x
+0011 34DA      00079         retlw   B'11011010'
+0012 34F8      00080         retlw   B'11111000'     ; xx11x00x
+0013 34F8      00081         retlw   B'11111000'
+               00082 
+0014           00083 power_led
+               00084         ; -------------------------------------------------------
+               00085         ; LED powering on.  return into W the PORTA mask for
+               00086         ; powering on the proper LED.  before calling this
+               00087         ; function, W must contain the LED number (from 0 to 7)
+               00088         ; we want to light on.
+               00089         ; we use this number as an offset into a table.
+               00090         ; -------------------------------------------------------
+               00091 
+0014 0782      00092         addwf   PCL,f           ; RA   5 4 2 1
+0015 3410      00093         retlw   B'00010000'     ; D0 = 0 1 Z Z
+0016 3420      00094         retlw   B'00100000'     ; D1 = 1 0 Z Z
+0017 3410      00095         retlw   B'00010000'     ; D2 = Z 1 0 Z
+0018 3404      00096         retlw   B'00000100'     ; D3 = Z 0 1 Z
+0019 3420      00097         retlw   B'00100000'     ; D4 = 1 Z 0 Z
+001A 3404      00098         retlw   B'00000100'     ; D5 = 0 Z 1 Z
+001B 3404      00099         retlw   B'00000100'     ; D6 = Z Z 1 0
+001C 3402      00100         retlw   B'00000010'     ; D7 = Z Z 0 1
+               00101 
+001D           00102 led_on
+               00103         ; -------------------------------------------------------
+               00104         ; light on a LED.  W contains the LED number we want
+               00105         ; to enable.
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+               00106         ; -------------------------------------------------------
+               00107 
+001D 00FE      00108         movwf   ledn            ; save LED number to file
+               00109 
+001E 1683      00110         bsf     STATUS,RP0      ; enter bank 1
+001F 200B      00111         call    config_led      ; get TRISA value, put it into W
+0020 0085      00112         movwf   TRISA           ; configure I/O
+               00113 
+0021 087E      00114         movf    ledn,w          ; restore LED number
+               00115 
+0022 1283      00116         bcf     STATUS,RP0      ; enter bank 0
+0023 2014      00117         call    power_led       ; get PORTA value, put it into W
+0024 0085      00118         movwf   PORTA           ; power on the desired LED
+0025 0008      00119         return
+               00120 
+0026           00121 main
+               00122         ; -------------------------------------------------------
+               00123         ; program's main entry point.
+               00124         ; -------------------------------------------------------
+               00125 
+               00126         ; init wait counters
+0026 1283      00127         bcf     STATUS,RP0      ; enter bank 0
+0027 30FF      00128         movlw   0xff
+0028 00FC      00129         movwf   count1
+0029 00FD      00130         movwf   count2
+               00131 
+               00132         ; init LED index
+002A 01FF      00133         clrf    index
+               00134 
+002B           00135 loop
+               00136         ; -------------------------------------------------------
+               00137         ; program's main loop.
+               00138         ; -------------------------------------------------------
+               00139 
+002B 087F      00140         movf    index,w         ; light on the LED number 'index'
+002C 201D      00141         call    led_on
+002D 2001      00142         call    wait            ; burn some cycles before switching LEDs
+               00143 
+               00144         ; next LED
+002E 0AFF      00145         incf    index,1
+002F 19FF      00146         btfsc   index,3
+0030 01FF      00147         clrf    index
+               00148 
+0031 282B      00149         goto    loop            ; repeat forever
+               00150 
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  4
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000004
+ADCS1                             00000005
+ADCS2                             00000006
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+ANS0                              00000000
+ANS1                              00000001
+ANS2                              00000002
+ANS3                              00000003
+ANS4                              00000004
+ANS5                              00000005
+ANS6                              00000006
+ANS7                              00000007
+ANSEL                             00000091
+C                                 00000000
+C1IE                              00000003
+C1IF                              00000003
+C1INV                             00000004
+C1OUT                             00000006
+C2IE                              00000004
+C2IF                              00000004
+C2INV                             00000005
+C2OUT                             00000007
+C2SYNC                            00000000
+CCP1CON                           00000015
+CCP1IE                            00000005
+CCP1IF                            00000005
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCPR1H                            00000014
+CCPR1L                            00000013
+CHS0                              00000002
+CHS1                              00000003
+CHS2                              00000004
+CIS                               00000003
+CM0                               00000000
+CM1                               00000001
+CM2                               00000002
+CMCON0                            00000019
+CMCON1                            0000001A
+DC                                00000001
+DC1B0                             00000004
+DC1B1                             00000005
+ECCPAS                            00000017
+ECCPAS0                           00000004
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+ECCPAS1                           00000005
+ECCPAS2                           00000006
+ECCPASE                           00000007
+EEADR                             0000009B
+EECON1                            0000009C
+EECON2                            0000009D
+EEDAT                             0000009A
+EEDATA                            0000009A
+EEIE                              00000007
+EEIF                              00000007
+F                                 00000001
+FSR                               00000004
+GIE                               00000007
+GO                                00000001
+GO_DONE                           00000001
+HTS                               00000002
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IOC                               00000096
+IOC0                              00000000
+IOC1                              00000001
+IOC2                              00000002
+IOC3                              00000003
+IOC4                              00000004
+IOC5                              00000005
+IOCA                              00000096
+IOCA0                             00000000
+IOCA1                             00000001
+IOCA2                             00000002
+IOCA3                             00000003
+IOCA4                             00000004
+IOCA5                             00000005
+IRCF0                             00000004
+IRCF1                             00000005
+IRCF2                             00000006
+IRP                               00000007
+LTS                               00000001
+NOT_BOD                           00000000
+NOT_DONE                          00000001
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RAPU                          00000007
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+OPTION_REG                        00000081
+OSCCON                            0000008F
+OSCTUNE                           00000090
+OSFIE                             00000002
+OSFIF                             00000002
+OSTS                              00000003
+P1M0                              00000006
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+P1M1                              00000007
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PDC0                              00000000
+PDC1                              00000001
+PDC2                              00000002
+PDC3                              00000003
+PDC4                              00000004
+PDC5                              00000005
+PDC6                              00000006
+PEIE                              00000006
+PIE1                              0000008C
+PIR1                              0000000C
+PORTA                             00000005
+PORTC                             00000007
+PR2                               00000092
+PRSEN                             00000007
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSSAC0                            00000002
+PSSAC1                            00000003
+PSSBD0                            00000000
+PSSBD1                            00000001
+PWM1CON                           00000016
+RAIE                              00000003
+RAIF                              00000000
+RD                                00000000
+RP0                               00000005
+RP1                               00000006
+SBODEN                            00000004
+SCS                               00000000
+STATUS                            00000003
+SWDTEN                            00000000
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1GINV                            00000007
+T1GSS                             00000001
+T1IE                              00000000
+T1IF                              00000000
+T1OSCEN                           00000003
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+T2IE                              00000001
+T2IF                              00000001
+TMR0                              00000001
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+TMR1CS                            00000001
+TMR1GE                            00000006
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISC                             00000087
+TUN0                              00000000
+TUN1                              00000001
+TUN2                              00000002
+TUN3                              00000003
+TUN4                              00000004
+ULPWUE                            00000005
+VCFG                              00000006
+VR0                               00000000
+VR1                               00000001
+VR2                               00000002
+VR3                               00000003
+VRCON                             00000099
+VREN                              00000007
+VRR                               00000005
+W                                 00000000
+WDTCON                            00000018
+WDTPS0                            00000001
+WDTPS1                            00000002
+WDTPS2                            00000003
+WDTPS3                            00000004
+WPU                               00000095
+WPUA                              00000095
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BOD_NSLEEP                       00003EFF
+_BOD_OFF                          00003CFF
+_BOD_ON                           00003FFF
+_BOD_SBODEN                       00003DFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003F7F
+_CP_OFF                           00003FFF
+_CP_ON                            00003FBF
+_EC_OSC                           00003FFB
+_EXTRC                            00003FFF
+_EXTRCIO                          00003FFE
+gpasm-0.13.3 beta               blink8.asm  9-2-2006  17:59:58           PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+ 
+_EXTRC_OSC_CLKOUT                 00003FFF
+_EXTRC_OSC_NOCLKOUT               00003FFE
+_FCMEN_OFF                        000037FF
+_FCMEN_ON                         00003FFF
+_HS_OSC                           00003FFA
+_IESO_OFF                         00003BFF
+_IESO_ON                          00003FFF
+_INTOSC                           00003FFD
+_INTOSCIO                         00003FFC
+_INTRC_OSC_CLKOUT                 00003FFD
+_INTRC_OSC_NOCLKOUT               00003FFC
+_LP_OSC                           00003FF8
+_MCLRE_OFF                        00003FDF
+_MCLRE_ON                         00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FEF
+_WDT_OFF                          00003FF7
+_WDT_ON                           00003FFF
+_XT_OSC                           00003FF9
+__16F684                          00000001
+config_led                        0000000B
+count1                            0000007C
+count2                            0000007D
+index                             0000007F
+led_on                            0000001D
+ledn                              0000007E
+loop                              0000002B
+main                              00000026
+power_led                         00000014
+wait                              00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+00000000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XX--------------
+00002000 : -------X-------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used: 51
+
+
+Errors   :       0
+Warnings :       0 reported,       0 suppressed
+Messages :       0 reported,       1 suppressed
+
