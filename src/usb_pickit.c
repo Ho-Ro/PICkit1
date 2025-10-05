@@ -10,6 +10,7 @@
  * Mark Rages, markrages@gmail.com, 2005/4/1
  * Jeff Boly, jboly@teammojo.org, 2005/12/31
  * David Henry, tfc_duke@club-internet.fr, 2007/1/27
+ * Martin Homuth-Rosemann, 2025/10/05
  */
 
 #ifndef PATH_MAX

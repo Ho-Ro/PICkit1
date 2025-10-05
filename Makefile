@@ -20,4 +20,4 @@ install:
 
 clean:
 	cd src; make clean; cd ..
-	rm -f \#* *.o core.* *~
+	rm -f \#* *.o core.* *~ .*~
