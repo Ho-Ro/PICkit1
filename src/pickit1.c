@@ -204,7 +204,7 @@ pickit1_verify (usb_pickit *d, const char *filename)
 
   usb_pickit_read (d, &dev.state);
   usb_pickit_calc_checksum (&dev.state);
-  usb_pickit_verify (&dfile.state, &dev.state);
+  return usb_pickit_verify (&dfile.state, &dev.state);
 
   return 1;
 }
@@ -227,7 +227,7 @@ pickit1_blank_check (usb_pickit *d)
 
   usb_pickit_read (d, &dev.state);
   usb_pickit_calc_checksum (&dev.state);
-  usb_pickit_blank_check (&dev.state);
+  return usb_pickit_blank_check (&dev.state);
 
   return 1;
 }
@@ -652,5 +652,5 @@ main (int argc, const char *argv[])
 
   poptFreeContext (poptcon);
 
-  return rc;
+  return rc - 1;
 }
